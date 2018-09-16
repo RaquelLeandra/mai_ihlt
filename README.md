@@ -1,6 +1,6 @@
 # Projects for Introduction to Human Language Technology
 
-* Raquel Pérez
+* Raquel Pérez Arnal
 * Jorge Sierra Acosta
 
 *Excersices are done using Python, NLTK, and the Jupyter Notebook*
