@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# # Optional excersice
+# # Optional exercise
 # Build a language classifier
 
 # In[1]:
