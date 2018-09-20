@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# # Mandatory excersice
+# # Mandatory exercise
 
 # In[1]:
 
