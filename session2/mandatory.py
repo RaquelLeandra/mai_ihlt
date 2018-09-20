@@ -32,7 +32,7 @@ with open('trial/STS.input.txt', 'r') as f:
 # **Compute their similarities by considering words and Jaccard distance.**
 # 
 
-# In[3]:
+# In[5]:
 
 
 simmilarities = []
@@ -43,7 +43,7 @@ for sid in pairs:
     words_2 = set([word.lower() for word in nltk.word_tokenize(s2)])
     jaccard_simmilarity = 1 - jaccard_distance(words_1, words_2)
     simmilarities.append(jaccard_simmilarity) 
-    print('id:', sid, 'distance:', jaccard_simmilarity)
+    print('id:', sid, 'similarity [0-1]:', jaccard_simmilarity)
 
 
 # **Compare the previous results with gold standard by giving the pearson correlation between them.**
