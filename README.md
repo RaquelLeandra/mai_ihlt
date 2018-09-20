@@ -14,5 +14,8 @@ The goal of this course is to provide the fundamentals of Natural Language Proce
 | Session    | Excersice    | Description |
 |------------|--------------|-------------|
 | Session 1  |              | Introduction to lab |
-| Session 2  | Mandatory    | Measure correlation between sentences |
+| Session 2  | Mandatory    | Measure correlation between sentences (Using words) |
 | Session 2  | Optional     | Language classifier |
+| Session 3  | Mandatory    | Measure correlation between sentences (Using lemmas) |
+| Session 3  | Optional 1   | Spelling correction |
+| Session 3  | Optional 2   | SMS spam classification |
