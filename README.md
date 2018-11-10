@@ -14,5 +14,18 @@ The goal of this course is to provide the fundamentals of Natural Language Proce
 | Session    | Excersice    | Description |
 |------------|--------------|-------------|
 | Session 1  |              | Introduction to lab |
-| Session 2  | Mandatory    | Measure correlation between sentences |
+| Session 2  | Mandatory    | Measure correlation between sentences (Using words) |
 | Session 2  | Optional     | Language classifier |
+| Session 3  | Mandatory    | Measure correlation between sentences (Using lemmas) |
+| Session 3  | Optional 1   | Spelling correction |
+| Session 3  | Optional 2   | SMS spam classification |
+| Session 4  | Mandatory    | Test different POS models for tagging |
+| Session 5  | Mandatory    | For some (lemma, category) pairs, print some information with WordNet |
+| Session 5  | Optional 1   | Search the shortest path between two noun synsets (WordNet) |
+| Session 5  | Optional 2   | Unsupervised polarity system |
+| Session 6  | Mandatory    | Measure correlation between sentences (Using words meanings: Lesk) |
+| Session 6  | Optional 1   | Measure correlation between sentences (Using words meanings: Lesk variants) |
+| Session 6  | Optional 2   | Build a WSD classifier |
+| Session 7  | Mandatory    | Measure correlation between sentences (Using Name Entities & Jaccard distances) |
+| Session 7  | Optional 1   | Regex parser for sentences to extract Name Entities |
+| Session 7  | Optional 2   | Build a Name Entities chunker |
