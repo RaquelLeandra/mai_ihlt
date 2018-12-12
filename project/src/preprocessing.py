@@ -134,7 +134,7 @@ class Preprocessor:
             for i2, (token2, tag2) in enumerate(s2):
                 if tag1 != 'DT' and tag2 != 'DT' and token1 != token2 and not self.is_number(token1) and not self.is_number(token2):
                     # Check common starting
-                    if  self.common_start(token1, token2) > 2 or self.common_end(token1, token2) > 2:
+                    if  self.common_start(token1, token2) > 2 or self.common_end(token1, token2) > 3:
                         #print('CHANGEA', s1[i1], s2[i2], "to", token1)
                         s1[i1] = (token1, tag1)
                         s2[i2] = (token1, tag2)
