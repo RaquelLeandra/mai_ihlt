@@ -104,17 +104,17 @@ class Classifier:
         self.__add_table(table, 'Jaccard', jac_trn, jac_tst)
         self.__add_table(table, 'Voting', trn, tst)
         print(table)
-        self.show_worst_test(tst)
+        self.show_worst_test(tst, rfr_tst, jac_tst)
 
-    def show_worst_test(self, predicted, k=5):
+    def show_worst_test(self, predicted, predicted_rfr, predicted_jac, k=5):
         print('Worst results in voting:')
         err = np.abs(predicted - self.tst_gs['labels'].values)
         idx = np.argpartition(err, -k)[-k:]
         for i in idx:
             print(
-                'Predicted: {:.2f} Target: {:.2f} Err: {:.2f}\nOriginal: [{:s}] [{:s}] Preprocessed:\n[{:s}] [{:s}]'
+                '\33[100mPredicted [Voting: {:.2f} RFR: {:.2f} Jaccard: {:.2f}] Target: {:.2f} Err: {:.2f}\033[0m\n  Original:     [{:s}] [{:s}]\n  Preprocessed:[{:s}] [{:s}]'
                 .format(
-                    predicted[i], self.tst_gs['labels'].values[i], err[i],
+                    predicted[i], predicted_rfr[i], predicted_jac[i], self.tst_gs['labels'].values[i], err[i],
                     str(self.tst['sentence0'].values[i]).replace('\n', '').replace('\r', ''),
                     str(self.tst['sentence1'].values[i]).replace('\n', '').replace('\r', ''),
                     str(self.pre_tst['sentence0'].values[i]),
