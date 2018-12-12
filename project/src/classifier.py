@@ -113,16 +113,6 @@ class Classifier:
         print('Worst results in voting:')
         err = np.abs(predicted - self.tst_gs['labels'].values)
         idx = np.argpartition(err, -k)[-k:]
-        i = 1041
-        print(
-            '\33[100m{:d} Predicted [Voting: {:.2f} RFR: {:.2f} Jaccard: {:.2f}] Target: {:.2f} Err: {:.2f}\033[0m\n  Original:     [{:s}] [{:s}]\n  Preprocessed:[{:s}] [{:s}]'
-            .format(
-                i, predicted[i], predicted_rfr[i], predicted_jac[i], self.tst_gs['labels'].values[i], err[i],
-                str(self.tst['sentence0'].values[i]).replace('\n', '').replace('\r', ''),
-                str(self.tst['sentence1'].values[i]).replace('\n', '').replace('\r', ''),
-                str(self.pre_tst['sentence0'].values[i]),
-                str(self.pre_tst['sentence1'].values[i]),
-            ))
         for i in idx:
             print(
                 '\33[100m{:d} Predicted [Voting: {:.2f} RFR: {:.2f} Jaccard: {:.2f}] Target: {:.2f} Err: {:.2f}\033[0m\n  Original:     [{:s}] [{:s}]\n  Preprocessed:[{:s}] [{:s}]'
