@@ -10,40 +10,38 @@ import re
 from stop_words import get_stop_words
 from nltk.corpus import stopwords
 
-class Preprocessing:
-    def __init__(self, data=None):
+
+class Preprocessor:
+    def __init__(self):
         nltk.download('averaged_perceptron_tagger')
         self.tagger = PerceptronTagger()
         self.lemmatizer = WordNetLemmatizer()
-        self.data = data
 
-    def run_cleaner(self):
-        for column in self.data.columns:
-            self.data[column] = self.data[column].apply(word_tokenize)
-            #self.data[column] = self.data[column].apply(self.auto_correct)
+    def run(self, data):
+        copy = data.copy()
+        self.run_cleaner(copy)
+        self.run_meaning(copy)
+        self.as_string(copy)
+        return copy
 
-    def run_meaning(self):
-        for column in self.data.columns:
-            pass
-            self.data[column] = self.data[column].apply(self.remove_stop_words)
-            #self.data[column] = self.data[column].apply(self.tagger.tag)
-            #self.data[column] = self.data[column].apply(self.lemmatize)
-            #self.data[column] = self.data[column].apply(self.meaning)
-            #self.data[column] = self.data[column].apply(self.revectorize)
-            # Join toghether names ?
+    def run_cleaner(self, data):
+        for column in data.columns:
+            data[column] = data[column].apply(word_tokenize)
+            # data[column] = data[column].apply(self.auto_correct)
+
+    def run_meaning(self, data):
+        for column in data.columns:
+            data[column] = data[column].apply(self.remove_stop_words)
+            # data[column] = data[column].apply(self.tagger.tag)
+            # data[column] = data[column].apply(self.lemmatize)
+            # data[column] = data[column].apply(self.meaning)
+            # data[column] = data[column].apply(self.revectorize)
+            # Join together names ?
             # Remove stopwords ?
 
-    def as_string(self):
-        string_df = pd.DataFrame(columns=['sentence0', 'sentence1'])
-        for column in self.data.columns:
-            string_df[column] = self.data[column].str.join(' ')
-        return string_df
-
-    def save_dump(self, name):
-        self.data.to_pickle(name)
-
-    def load_dump(self, name):
-        self.data = pd.read_pickle(name)
+    def as_string(self, data):
+        for column in data.columns:
+            data[column] = data[column].str.join(' ')
 
     def remove_stop_words(self, vector):
         new_vector = []
