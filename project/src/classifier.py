@@ -68,7 +68,10 @@ class Classifier:
         voted = []
         for rfr, jac in zip(predict_rfr, predict_jac):
             if abs(rfr - jac) > 2:
-                voted.append(np.mean([jac, rfr]))
+                if jac > rfr:
+                    voted.append(jac)
+                else:
+                    voted.append((jac + rfr) / 2.)
             else:
                 voted.append(rfr)
         return voted
@@ -110,11 +113,21 @@ class Classifier:
         print('Worst results in voting:')
         err = np.abs(predicted - self.tst_gs['labels'].values)
         idx = np.argpartition(err, -k)[-k:]
+        i = 1041
+        print(
+            '\33[100m{:d} Predicted [Voting: {:.2f} RFR: {:.2f} Jaccard: {:.2f}] Target: {:.2f} Err: {:.2f}\033[0m\n  Original:     [{:s}] [{:s}]\n  Preprocessed:[{:s}] [{:s}]'
+            .format(
+                i, predicted[i], predicted_rfr[i], predicted_jac[i], self.tst_gs['labels'].values[i], err[i],
+                str(self.tst['sentence0'].values[i]).replace('\n', '').replace('\r', ''),
+                str(self.tst['sentence1'].values[i]).replace('\n', '').replace('\r', ''),
+                str(self.pre_tst['sentence0'].values[i]),
+                str(self.pre_tst['sentence1'].values[i]),
+            ))
         for i in idx:
             print(
-                '\33[100mPredicted [Voting: {:.2f} RFR: {:.2f} Jaccard: {:.2f}] Target: {:.2f} Err: {:.2f}\033[0m\n  Original:     [{:s}] [{:s}]\n  Preprocessed:[{:s}] [{:s}]'
+                '\33[100m{:d} Predicted [Voting: {:.2f} RFR: {:.2f} Jaccard: {:.2f}] Target: {:.2f} Err: {:.2f}\033[0m\n  Original:     [{:s}] [{:s}]\n  Preprocessed:[{:s}] [{:s}]'
                 .format(
-                    predicted[i], predicted_rfr[i], predicted_jac[i], self.tst_gs['labels'].values[i], err[i],
+                    i, predicted[i], predicted_rfr[i], predicted_jac[i], self.tst_gs['labels'].values[i], err[i],
                     str(self.tst['sentence0'].values[i]).replace('\n', '').replace('\r', ''),
                     str(self.tst['sentence1'].values[i]).replace('\n', '').replace('\r', ''),
                     str(self.pre_tst['sentence0'].values[i]),

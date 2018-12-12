@@ -3,12 +3,11 @@ from autocorrect import spell
 from nltk.tag import PerceptronTagger
 from nltk.corpus import wordnet as wn
 from nltk import word_tokenize
-import pandas as pd
 import nltk
 import re
 
-from stop_words import get_stop_words
 from nltk.corpus import stopwords
+from lex_path import lex_compare
 
 
 class Preprocessor:
@@ -43,8 +42,8 @@ class Preprocessor:
         for column in data.columns:
             pass
             # data[column] = data[column].apply(self.dt_noun_joiner)
-        #for index, row in data.iterrows():
-        #    data[column] = data[column].apply(self.meaning)
+        for index, row in data.iterrows():
+            row = self.meaning(row)
         for column in data.columns:
             data[column] = data[column].apply(self.revectorize)
 
@@ -55,6 +54,13 @@ class Preprocessor:
                 data[column] = data[column].str.lower()
             else:
                 data[column] = data[column].str.join(' ')
+
+            # Remove common articles
+            data[column] = data[column].apply(self.remove_common)
+
+    def remove_common(self, sentence):
+        #return re.sub(r'(the|a|one|each|only)\s+(girl|boy|man|woman|men|women|person|adult|people)', 'a \\1', sentence)
+        return sentence
 
     def remover(self, vector):
         new_vector = []
@@ -103,24 +109,58 @@ class Preprocessor:
         result.append(tagged[-1])
         return result
 
+    def common_start(self, A, B):
+        count = 0
+        for a, b in zip(A, B):
+            if a != b:
+                return count
+            count += 1
+        return count
 
-    def meaning(self, tagged):
+    def common_end(self, A, B):
+        count = 0
+        for a, b in zip(reversed(A), reversed(B)):
+            if a != b:
+                return count
+            count += 1
+        return count
 
-        morphy_tag = {'NN': wn.NOUN, 'JJ': wn.ADJ,
-                      'VB': wn.VERB, 'RB': wn.ADV,
-                      'NNS': wn.NOUN}
+    def meaning(self, row):
 
-        #print(tagged)
-        semantic = []
-        for idx, (token, tag) in enumerate(tagged):  # For each word
-            semantic.append((token, tag))
-            if tag in ['NN', 'NNS', 'VB', 'JJ', 'RB']:
-                context = [i for i,_ in tagged if i != token]  # Context for the word ({S} - {word})
-                #synset = lesk(context, token.lower(), 'n')  # Lesk algorithm => Synset
-                synset = wn.synsets(token, morphy_tag[tag])
-                if synset:
-                    synset = re.sub(r'Synset\(\'(.*)\..*\..*', r'\1', str(synset[0]))
-                    semantic[-1] = (synset, tag)
+        s1 = row['sentence0']
+        s2 = row['sentence1']
 
-        #print(semantic)
-        return semantic
+        for i1, (token1, tag1) in enumerate(s1):
+            for i2, (token2, tag2) in enumerate(s2):
+                if tag1 != 'DT' and tag2 != 'DT' and token1 != token2 and not self.is_number(token1) and not self.is_number(token2):
+                    # Check common starting
+                    if  self.common_start(token1, token2) > 2 or self.common_end(token1, token2) > 2:
+                        #print('CHANGEA', s1[i1], s2[i2], "to", token1)
+                        s1[i1] = (token1, tag1)
+                        s2[i2] = (token1, tag2)
+                        pass
+                    elif tag1.startswith('V') and tag2.startswith('V'):
+                        synset1 = wn.synsets(token1, self.penn_to_wn(tag1))
+                        synset2 = wn.synsets(token2, self.penn_to_wn(tag2))
+                        if len(synset1) > 0 and len(synset2) > 0:
+                            full_path, min_common, min_dist = lex_compare(
+                                str(synset1[0]).replace('Synset(\'', '').replace('\')', ''),
+                                str(synset2[0]).replace('Synset(\'', '').replace('\')', ''))
+
+                            if  min_common is not None \
+                                and min_dist < 4 \
+                                and not str(min_common).startswith('Synset(\'entity') \
+                                and not str(min_common).startswith('Synset(\'abstraction'):
+                                    print('CHANGEB', s1[i1], s2[i2], "to", end=' ')
+                                    s1[i1] = (re.sub(r'Synset\(\'(.*)\..*\..*', r'\1', str(min_common)), tag1)
+                                    s2[i2] = (re.sub(r'Synset\(\'(.*)\..*\..*', r'\1', str(min_common)), tag2)
+                                    print(s1[i1], min_dist)
+        return row
+
+    def is_number(self, s):
+        try:
+            float(s)
+        except ValueError:
+            return False
+        else:
+            return True
