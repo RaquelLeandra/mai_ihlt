@@ -7,6 +7,8 @@ import pandas as pd
 import nltk
 import re
 
+from stop_words import get_stop_words
+from nltk.corpus import stopwords
 
 class Preprocessing:
     def __init__(self, data=None):
@@ -18,14 +20,16 @@ class Preprocessing:
     def run_cleaner(self):
         for column in self.data.columns:
             self.data[column] = self.data[column].apply(word_tokenize)
-            self.data[column] = self.data[column].apply(self.auto_correct)
+            #self.data[column] = self.data[column].apply(self.auto_correct)
 
     def run_meaning(self):
         for column in self.data.columns:
-            self.data[column] = self.data[column].apply(self.tagger.tag)
-            self.data[column] = self.data[column].apply(self.lemmatize)
-            self.data[column] = self.data[column].apply(self.meaning)
-            self.data[column] = self.data[column].apply(self.revectorize)
+            pass
+            self.data[column] = self.data[column].apply(self.remove_stop_words)
+            #self.data[column] = self.data[column].apply(self.tagger.tag)
+            #self.data[column] = self.data[column].apply(self.lemmatize)
+            #self.data[column] = self.data[column].apply(self.meaning)
+            #self.data[column] = self.data[column].apply(self.revectorize)
             # Join toghether names ?
             # Remove stopwords ?
 
@@ -40,6 +44,18 @@ class Preprocessing:
 
     def load_dump(self, name):
         self.data = pd.read_pickle(name)
+
+    def remove_stop_words(self, vector):
+        new_vector = []
+        for word in vector:
+            #word = re.sub(r'\W+', '', word)
+            #print(word)
+            #if not word in ['\'s'] and not word in list(stopwords.words('english')):
+            #if len(word) > 0 and not word in list(stopwords.words('english')):
+            if not word in list(stopwords.words('english')):
+                #print(word)
+                new_vector.append(word)
+        return new_vector
 
     def revectorize(self, tagged):
         return [word for word, tag in tagged]
