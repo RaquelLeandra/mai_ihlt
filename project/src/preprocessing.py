@@ -5,6 +5,8 @@ from nltk.corpus import wordnet as wn
 from nltk import word_tokenize
 import nltk
 import re
+import os.path
+import pandas as pd
 
 from nltk.corpus import stopwords
 from lex_path import lex_compare
@@ -15,52 +17,41 @@ class Preprocessor:
         nltk.download('averaged_perceptron_tagger')
         self.tagger = PerceptronTagger()
         self.lemmatizer = WordNetLemmatizer()
-
-    def run(self, data):
-        copy = data.copy()
-        self.run_cleaner(copy)
-        self.run_lemmas(copy)
-        self.run_meaning(copy)
-        # Remove all final 's' in words
-        self.as_string(copy)
-        return copy
-
-    def run_cleaner(self, data):
-        for column in data.columns:
-            data[column] = data[column].apply(word_tokenize)
-            # data[column] = data[column].apply(self.auto_correct)
+        self.stopwords = list(stopwords.words('english'))
 
     def run_lemmas(self, data):
+        data = data.copy()
+
         for column in data.columns:
-            data[column] = data[column].apply(self.remover) # Removes stop words and symbols
+            data[column] = data[column].apply(word_tokenize)
+            # data[column] = data[column].apply(self.auto_correct) TODO dump
+            data[column] = data[column].apply(self.remover)  # Remove stop words and symbols
             data[column] = data[column].apply(self.tagger.tag)
             data[column] = data[column].apply(self.lemmatize)
-            # Join together names ?
+
+        return data
 
     def run_meaning(self, data):
-        # Change numbers to text
-        for column in data.columns:
-            pass
-            # data[column] = data[column].apply(self.dt_noun_joiner)
-        for index, row in data.iterrows():
-            row = self.meaning(row)
+        data = data.copy()
+
+        for _, row in data.iterrows():
+            self.meaning(row)
+
         for column in data.columns:
             data[column] = data[column].apply(self.revectorize)
+            data[column] = data[column].str.join(' ')
+            data[column] = data[column].str.lower()
+            data[column] = data[column].apply(self.remove_s)
 
-    def as_string(self, data, to_lower=True):
-        for column in data.columns:
-            if to_lower:
-                data[column] = data[column].str.join(' ')
-                data[column] = data[column].str.lower()
-            else:
-                data[column] = data[column].str.join(' ')
+        return data
 
-            # Remove common articles
-            data[column] = data[column].apply(self.remove_common)
+    def revectorize(self, tagged):
+        return [word for word, tag in tagged]
 
-    def remove_common(self, sentence):
-        #return re.sub(r'(the|a|one|each|only)\s+(girl|boy|man|woman|men|women|person|adult|people)', 'a \\1', sentence)
-        return sentence
+    # ------------------------------------------------ REMOVE & FIX ▼ --------------------------------------------------
+
+    def remove_s(self, sentence):
+        return re.sub(r'(\w)s(\s)', '\\1\\2', sentence)
 
     def remover(self, vector):
         new_vector = []
@@ -68,18 +59,17 @@ class Preprocessor:
             word = re.sub(r'\.\d+', '', word)  # Remove decimals
             word = re.sub(r'\W+', '', word)  # Remove symbols
             word = re.sub(r'\s+', ' ', word)  # Replace multiple spaces by one
-            #print(word)
-            #if not word in ['\'s'] and not word in list(stopwords.words('english')):
-            if len(word) > 0 and not word in list(stopwords.words('english')):
-                #print(word)
-                new_vector.append(word)
-        return new_vector
+            word = re.sub(r'^\s+|\s+$', '', word) # Trim spaces
 
-    def revectorize(self, tagged):
-        return [word for word, tag in tagged]
+            if word and not (word in self.stopwords):
+                new_vector.append(word)
+
+        return new_vector
 
     def auto_correct(self, vector):
         return [spell(word) for word in vector]
+
+    # --------------------------------------------------- LEMMAS ▼ ----------------------------------------------------
 
     def penn_to_wn(self, tag):
         if tag in ['JJ', 'JJR', 'JJS']:
@@ -95,19 +85,15 @@ class Preprocessor:
     def lemmatize(self, tagged):
         result = []
         for word, tag in tagged:
-            if word.endswith('ing'): # A verb for sure (?). Sometimes, verbs are wrongly classified, for example, "A man is smoking" (Smoking => Noun)
+            # A verb for sure if it ends in ing (?).
+            # Sometimes, verbs are wrongly classified, for example, "A man is smoking" (Smoking => Noun)
+            if word.endswith('ing'):
                 tag = 'VB'
             lemma = self.lemmatizer.lemmatize(word, self.penn_to_wn(tag))
             result.append((lemma, tag))
         return result
 
-    def dt_noun_joiner(self, tagged):
-        result = []
-        for i in range(len(tagged) - 1):
-            if tagged[i][1] != 'DT' or not tagged[i + 1][1].startswith('N'):
-                result.append(tagged[i])
-        result.append(tagged[-1])
-        return result
+    # --------------------------------------------------- MEANING ▼ ----------------------------------------------------
 
     def common_start(self, A, B):
         count = 0
@@ -124,6 +110,10 @@ class Preprocessor:
                 return count
             count += 1
         return count
+
+    def get_synsets(self, word, tag):
+        synsets = wn.synsets(word, self.penn_to_wn(tag))
+        return [str(synset).replace('Synset(\'', '').replace('\')', '') for synset in synsets]
 
     def meaning(self, row):
 
@@ -151,10 +141,10 @@ class Preprocessor:
                                 and min_dist < 4 \
                                 and not str(min_common).startswith('Synset(\'entity') \
                                 and not str(min_common).startswith('Synset(\'abstraction'):
-                                    print('CHANGEB', s1[i1], s2[i2], "to", end=' ')
+                                    #print('CHANGEB', s1[i1], s2[i2], "to", end=' ')
                                     s1[i1] = (re.sub(r'Synset\(\'(.*)\..*\..*', r'\1', str(min_common)), tag1)
                                     s2[i2] = (re.sub(r'Synset\(\'(.*)\..*\..*', r'\1', str(min_common)), tag2)
-                                    print(s1[i1], min_dist)
+                                    #print(s1[i1], min_dist)
         return row
 
     def is_number(self, s):
