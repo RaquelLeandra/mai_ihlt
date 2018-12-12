@@ -1,41 +1,73 @@
 from nltk.stem import WordNetLemmatizer
-from nltk.tokenize import WhitespaceTokenizer
 from autocorrect import spell
+from nltk.tag import PerceptronTagger
+from nltk.corpus import wordnet as wn
+from nltk import word_tokenize
+import pandas as pd
+import nltk
 import re
 
 
-def lemmatize_text(text):
-    """ Convert the text into lemmas """
-    lemmatizer = WordNetLemmatizer()
-    w_tokenizer = WhitespaceTokenizer()
-    return [lemmatizer.lemmatize(w) for w in w_tokenizer.tokenize(text)]
+class Preprocessing:
+    def __init__(self, data=None):
+        nltk.download('averaged_perceptron_tagger')
+        self.tagger = PerceptronTagger()
+        self.lemmatizer = WordNetLemmatizer()
+        self.data = data
+
+    def run_cleaner(self):
+        for column in self.data.columns:
+            self.data[column] = self.data[column].apply(word_tokenize)
+            self.data[column] = self.data[column].apply(self.auto_correct)
+
+    def run_meaning(self):
+        for column in self.data.columns:
+            self.data[column] = self.data[column].apply(self.tagger.tag)
+            self.data[column] = self.data[column].apply(self.lemmatize)
+            self.data[column] = self.data[column].apply(self.meaning)
+            self.data[column] = self.data[column].apply(self.revectorize)
+            # Join toghether names ?
+            # Remove stopwords ?
+
+    def as_string(self):
+        string_df = pd.DataFrame(columns=['sentence0', 'sentence1'])
+        for column in self.data.columns:
+            string_df[column] = self.data[column].str.join(' ')
+        return string_df
+
+    def save_dump(self, name):
+        self.data.to_pickle(name)
+
+    def load_dump(self, name):
+        self.data = pd.read_pickle(name)
+
+    def revectorize(self, tagged):
+        return [word for word, tag in tagged]
+
+    def auto_correct(self, vector):
+        return [spell(word) for word in vector]
+
+    def lemmatize(self, tagged):
+        return [(self.lemmatizer.lemmatize(word), tag) for word, tag in tagged]
 
 
-def auto_spell(text):
-    """ Correct spelling errors """
-    return ' '.join(spell(word) for word in text.split())
+    def meaning(self, tagged):
 
+        morphy_tag = {'NN': wn.NOUN, 'JJ': wn.ADJ,
+                      'VB': wn.VERB, 'RB': wn.ADV,
+                      'NNS': wn.NOUN}
 
-def punctuation(text):
-    """ Remove or change punctuation """
-    text = re.sub('\d+', '', text)
-    text = re.sub('\W+', ' ', text)
-    text = re.sub('\s+', ' ', text)
-    return text
+        #print(tagged)
+        semantic = []
+        for idx, (token, tag) in enumerate(tagged):  # For each word
+            semantic.append((token, tag))
+            if tag in ['NN', 'NNS', 'VB', 'JJ', 'RB']:
+                context = [i for i,_ in tagged if i != token]  # Context for the word ({S} - {word})
+                #synset = lesk(context, token.lower(), 'n')  # Lesk algorithm => Synset
+                synset = wn.synsets(token, morphy_tag[tag])
+                if synset:
+                    synset = re.sub(r'Synset\(\'(.*)\..*\..*', r'\1', str(synset[0]))
+                    semantic[-1] = (synset, tag)
 
-
-def preprocess(data, as_vector=True):
-    data = data.fillna('')
-    for column in data.columns:
-        # remove the digits and punctuation
-        data[column] = data[column].apply(punctuation)
-        # words to lower
-        data[column] = data[column].str.lower()
-        # spell corrector
-        data[column] = data[column].apply(auto_spell)
-        # lemmatize
-        data[column] = data[column].apply(lemmatize_text)
-        # convert vector to string
-        if not as_vector:
-            data[column] = data[column].str.join(' ')
-    return data
+        #print(semantic)
+        return semantic
