@@ -7,6 +7,7 @@ from nltk import pos_tag
 from sklearn.preprocessing import StandardScaler
 import string
 from nltk.corpus import wordnet_ic
+from nltk import word_tokenize
 
 class FeatureExtractor:
     def __init__(self):
@@ -22,7 +23,7 @@ class FeatureExtractor:
                                          'number_of_digits_s0', 'number_of_digits_1',
                                          'synonim_proportion', 'quantity_of_shared_words',
                                          'proper_nouns_shared', 'jaccard_distance', 'path_similarity',
-                                         'wup_similarity', 'resnik_similarity',
+                                         'wup_similarity', 'resnik_similarity', 'common_description',
                                          'jcn_similarity', 'lin_similarity'])
 
         mx = len(dataset.index)
@@ -49,6 +50,7 @@ class FeatureExtractor:
             features.loc[index,'number_of_symbols_s1'] = self.count_symbols(s1)
             features.loc[index,'number_of_digits_s0'] = self.count_digits(s0)
             features.loc[index,'number_of_digits_1'] = self.count_digits(s1)
+            features.loc[index,'common_description'] = self.common_description(s0, s1)
 
         features['resnik_similarity'] = self.scaler.fit_transform(features[['resnik_similarity']].values)
         features['jcn_similarity'] = self.scaler.fit_transform(features[['jcn_similarity']].values)
@@ -108,6 +110,35 @@ class FeatureExtractor:
         # Average the values
         if count > 0: score /= count
         return score
+
+    def common_description(self, s0, s1):
+        tagger = PerceptronTagger()
+        s0_tags = tagger.tag(s0)
+        s1_tags = tagger.tag(s1)
+
+        total_dist = 0
+        for word, tag in s0_tags:
+            if tag.startswith('N') or tag.startswith('V') or tag.startswith('J') or tag.startswith('R'):
+                max_dist = 0
+                for synset in wn.synsets(word, self.penn_to_wn(tag)):
+                    desc = word_tokenize(synset.definition())
+                    dist = len(list(set(s1) & set(desc)))
+                    if dist > max_dist:
+                        max_dist = dist
+                total_dist += max_dist
+
+        for word, tag in s1_tags:
+            if tag.startswith('N') or tag.startswith('V') or tag.startswith('J') or tag.startswith('R'):
+                max_dist = 0
+                for synset in wn.synsets(word, self.penn_to_wn(tag)):
+                    desc = word_tokenize(synset.definition())
+                    dist = len(list(set(s0) & set(desc)))
+                    if dist > max_dist:
+                        max_dist = dist
+                total_dist += max_dist
+
+        return total_dist
+
 
     def sentence_lenght(self, s):
         return len(s)

@@ -72,12 +72,12 @@ class Classifier:
         print(self.pre_trn.head())
         # Features
 
-        self.fea_trn = pd.read_pickle('./dump/fea_trn.dump')
-        self.fea_tst = pd.read_pickle('./dump/fea_tst.dump')
+        self.fea_trn = pd.read_pickle('./dump/fea_trn1.dump')
+        self.fea_tst = pd.read_pickle('./dump/fea_tst1.dump')
         #self.fea_trn = self.feature_extractor.extract(self.tok_trn)
         #self.fea_tst = self.feature_extractor.extract(self.tok_tst)
-        #self.fea_trn.to_pickle('./dump/fea_trn.dump')
-        #self.fea_tst.to_pickle('./dump/fea_tst.dump')
+        #self.fea_trn.to_pickle('./dump/fea_trn1.dump')
+        #self.fea_tst.to_pickle('./dump/fea_tst1.dump')
 
         #self.vec_trn = self.vectorizer.fit_transform(self.pre_trn['sentence0'] + self.pre_trn['sentence1'])
         #self.vec_tst = self.vectorizer.transform(self.pre_tst['sentence0'] + self.pre_tst['sentence1'])
