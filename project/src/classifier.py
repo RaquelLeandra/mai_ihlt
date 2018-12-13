@@ -50,7 +50,7 @@ class Classifier:
         self.feature_extractor = FeatureExtractor()
         self.jaccard = Jaccard()
         self.rfr = RFR()
-        self.nn = MLPRegressor(hidden_layer_sizes=(30, 30, 30), validation_fraction=0.3, alpha=0.3, warm_start=False,
+        self.nn = MLPRegressor(hidden_layer_sizes=(100, 30, 30), validation_fraction=0.3, alpha=0.3, warm_start=False,
                                 max_iter=1000, activation='logistic')
         self.vectorizer = TfidfVectorizer(max_features=None,
                                           strip_accents='unicode', analyzer='word', token_pattern=r'\w{1,}',
@@ -72,12 +72,12 @@ class Classifier:
         print(self.pre_trn.head())
         # Features
 
-        self.fea_trn = pd.read_pickle('./dump/fea_trn1.dump')
-        self.fea_tst = pd.read_pickle('./dump/fea_tst1.dump')
+        self.fea_trn = pd.read_pickle('./dump/fea_trn2.dump')
+        self.fea_tst = pd.read_pickle('./dump/fea_tst2.dump')
         #self.fea_trn = self.feature_extractor.extract(self.tok_trn)
         #self.fea_tst = self.feature_extractor.extract(self.tok_tst)
-        #self.fea_trn.to_pickle('./dump/fea_trn1.dump')
-        #self.fea_tst.to_pickle('./dump/fea_tst1.dump')
+        #self.fea_trn.to_pickle('./dump/fea_trn2.dump')
+        #self.fea_tst.to_pickle('./dump/fea_tst2.dump')
 
         #self.vec_trn = self.vectorizer.fit_transform(self.pre_trn['sentence0'] + self.pre_trn['sentence1'])
         #self.vec_tst = self.vectorizer.transform(self.pre_tst['sentence0'] + self.pre_tst['sentence1'])

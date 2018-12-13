@@ -16,7 +16,7 @@ class FeatureExtractor:
 
     def extract(self, dataset):
 
-        features = pd.DataFrame(columns=['sentence_0_lengh', 'sentence_1_lengh',
+        features = pd.DataFrame(columns=['sentence_lenght_diff',
                                          'number_of_nouns_s0', 'number_of_nouns_s1',
                                          'number_of_verbs_s0', 'number_of_verbs_s1',
                                          'number_of_symbols_s0', 'number_of_symbols_s1',
@@ -40,8 +40,7 @@ class FeatureExtractor:
             features.loc[index,'proper_nouns_shared'] = self.count_common_propper_nouns(s0,s1)
             features.loc[index,'quantity_of_shared_words'] = self.count_shared_words(s0,s1)
             features.loc[index,'synonim_proportion'] = self.synonim_proportion(s0,s1)
-            features.loc[index,'sentence_0_lengh'] = self.sentence_lenght(s0)
-            features.loc[index,'sentence_1_lengh'] = self.sentence_lenght(s1)
+            features.loc[index,'sentence_lenght_diff'] = abs(self.sentence_lenght(s0) - self.sentence_lenght(s1))
             features.loc[index,'number_of_nouns_s0'] = self.count_nouns(s0)
             features.loc[index,'number_of_nouns_s1'] = self.count_nouns(s1)
             features.loc[index,'number_of_verbs_s0'] = self.count_verbs(s0)
