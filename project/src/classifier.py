@@ -6,12 +6,12 @@ from beautifultable import BeautifulTable
 
 from scipy.stats import pearsonr
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.ensemble import RandomForestRegressor
+from feature_extractor import FeatureExtractor
 
 from preprocessing import Preprocessor
 from jaccard import Jaccard
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+from rfr import RFR
 
 class Classifier:
     _GS_COLS = ['labels']
@@ -38,11 +38,16 @@ class Classifier:
         self.pre_tst = pd.DataFrame(columns=Classifier._COLS)   # Preprocessed data_frame
         self.vec_trn = []
         self.vec_tst = []
+        self.tok_trn = []
+        self.tok_tst = []
+        self.fea_trn = []
+        self.fea_tst = []
 
         self._dump_loaded = False
 
+        self.feature_extractor = FeatureExtractor()
         self.jaccard = Jaccard()
-        self.rfr = RandomForestRegressor(n_jobs=-1)
+        self.rfr = RFR()
         self.vectorizer = TfidfVectorizer(max_features=None,
                                           strip_accents='unicode', analyzer='word', token_pattern=r'\w{1,}',
                                           ngram_range=(1, 3), use_idf=1, smooth_idf=1, sublinear_tf=1,
@@ -56,20 +61,20 @@ class Classifier:
     def classify(self):
         print(self.trn.head())
         print('Preprocessing...')
-        # If dump files where not loaded for first part of preprocessing, since this part is always the same
-        if not self._dump_loaded:
-            self.pre_trn = self.preprocessor.run_lemmas(self.trn)
-            self.pre_tst = self.preprocessor.run_lemmas(self.tst)
-            self.pre_trn = self.preprocessor.run_meaning(self.pre_trn)
-            self.pre_tst = self.preprocessor.run_meaning(self.pre_tst)
-            self.save_dump()
-
-        self.vec_trn = self.vectorizer.fit_transform(self.pre_trn['sentence0'] + self.pre_trn['sentence1'])
-        self.vec_tst = self.vectorizer.transform(self.pre_tst['sentence0'] + self.pre_tst['sentence1'])
+        self.pre_trn = self.preprocessor.run_lemmas(self.trn)
+        self.pre_tst = self.preprocessor.run_lemmas(self.tst)
+        self.tok_trn = self.preprocessor.run_meaning(self.pre_trn)
+        self.tok_tst = self.preprocessor.run_meaning(self.pre_tst)
         print(self.pre_trn.head())
+        # Features
+        self.fea_trn = self.feature_extractor.extract(self.tok_trn)
+        self.fea_tst = self.feature_extractor.extract(self.tok_tst)
+        #self.vec_trn = self.vectorizer.fit_transform(self.pre_trn['sentence0'] + self.pre_trn['sentence1'])
+        #self.vec_tst = self.vectorizer.transform(self.pre_tst['sentence0'] + self.pre_tst['sentence1'])
 
-        print('Training...')
-        self.train_rfr()
+        print('Training RFR...')
+        self.rfr.train(self.tok_trn, self.fea_trn, self.trn_gs['labels'].values)
+        print('Done !')
 
         print('Testing...')
         predict_rfr_trn, predict_rfr_tst = self.test_rfr()
@@ -91,15 +96,11 @@ class Classifier:
 
     # --------------------------------------------------- MODELS ▼ ----------------------------------------------------
 
-    # Random Forest Regression
-    def train_rfr(self):
-        self.rfr.fit(self.vec_trn, self.trn_gs.values.ravel())
-
     def test_rfr(self):
-        return self.rfr.predict(self.vec_trn), self.rfr.predict(self.vec_tst)
+        return self.rfr.predict_(self.tok_trn, self.fea_trn), self.rfr.predict_(self.tok_tst, self.fea_tst)
 
     def test_jac(self):
-        return self.jaccard.predict(self.pre_trn), self.jaccard.predict(self.pre_tst)
+        return self.jaccard.predict(self.tok_trn), self.jaccard.predict(self.tok_tst)
 
     # ---------------------------------------------------- SHOW ▼ -----------------------------------------------------
 

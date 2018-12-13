@@ -11,9 +11,7 @@ class Jaccard:
         for index, row in data_frame.iterrows():
             s1 = row['sentence0']
             s2 = row['sentence1']
-            lemms1 = set(nltk.word_tokenize(s1))
-            lemms2 = set(nltk.word_tokenize(s2))
-            jaccard_similarity = (1 - jaccard_distance(lemms1, lemms2)) * maximum
+            jaccard_similarity = (1 - jaccard_distance(set(s1), set(s2))) * maximum
             predicted.append(jaccard_similarity)
 
         return predicted

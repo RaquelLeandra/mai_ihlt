@@ -35,13 +35,14 @@ class Preprocessor:
         data = data.copy()
 
         for _, row in data.iterrows():
-            self.meaning(row)
+            #self.meaning(row)
+            pass
 
         for column in data.columns:
             data[column] = data[column].apply(self.revectorize)
-            data[column] = data[column].str.join(' ')
-            data[column] = data[column].str.lower()
-            data[column] = data[column].apply(self.remove_s)
+            #data[column] = data[column].str.join(' ')
+            #data[column] = data[column].str.lower()
+            #data[column] = data[column].apply(self.remove_s)
 
         return data
 
