@@ -50,8 +50,8 @@ class Classifier:
         self.feature_extractor = FeatureExtractor()
         self.jaccard = Jaccard()
         self.rfr = RFR()
-        self.nn = MLPRegressor(hidden_layer_sizes=(100, 100), validation_fraction=0.3, alpha=0.3, warm_start=False,
-                                max_iter=1000)
+        self.nn = MLPRegressor(hidden_layer_sizes=(30, 30, 30), validation_fraction=0.3, alpha=0.3, warm_start=False,
+                                max_iter=1000, activation='logistic')
         self.vectorizer = TfidfVectorizer(max_features=None,
                                           strip_accents='unicode', analyzer='word', token_pattern=r'\w{1,}',
                                           ngram_range=(1, 3), use_idf=1, smooth_idf=1, sublinear_tf=1,
@@ -114,9 +114,9 @@ class Classifier:
 
     def voting(self, predict_rfr, predict_jac, predict_nn):
         voted = []
-        for rfr, jac in zip(predict_rfr, predict_jac):
-            if jac > rfr:
-                voted.append(jac)
+        for rfr, jac, nn in zip(predict_rfr, predict_jac, predict_nn):
+            if jac < 2:
+                voted.append(0.5 * rfr + 0.5 * nn)
             else:
                 voted.append(rfr)
         return voted
@@ -140,6 +140,22 @@ class Classifier:
         self.__add_table(table, 'Jaccard', jac_trn, jac_tst)
         self.__add_table(table, 'NN', nn_trn, nn_tst)
         self.__add_table(table, 'Voting', vot_trn, vot_tst)
+        plt.scatter(nn_trn, self.trn_gs['labels'], c='Cyan')
+        plt.xlabel('NN label')
+        plt.ylabel('Real label')
+        plt.show()
+        plt.scatter(vot_trn, self.trn_gs['labels'], c='Blue')
+        plt.xlabel('Voting label')
+        plt.ylabel('Real label')
+        plt.show()
+        plt.scatter(jac_trn, self.trn_gs['labels'], c='Green')
+        plt.xlabel('Jaccard label')
+        plt.ylabel('Real label')
+        plt.show()
+        plt.scatter(rfr_trn, self.trn_gs['labels'], c='Red')
+        plt.xlabel('RFR label')
+        plt.ylabel('Real label')
+        plt.show()
         plt.scatter(nn_tst, self.tst_gs['labels'], c='Cyan')
         plt.xlabel('NN label')
         plt.ylabel('Real label')

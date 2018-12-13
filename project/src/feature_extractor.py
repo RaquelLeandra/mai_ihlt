@@ -4,34 +4,41 @@ from nltk.corpus import stopwords
 from nltk.metrics import jaccard_distance
 from nltk.tag import PerceptronTagger
 from nltk import pos_tag
+from sklearn.preprocessing import StandardScaler
 import string
+from nltk.corpus import wordnet_ic
 
 class FeatureExtractor:
     def __init__(self):
-        pass
+        self.scaler = StandardScaler()
+        self.brown_ic = wordnet_ic.ic('ic-brown.dat')
 
     def extract(self, dataset):
 
-        features = pd.DataFrame(columns=['sentence_0_lengh','sentence_1_lengh',
-                                        'number_of_nouns_s0', 'number_of_nouns_s1',
-                                        'number_of_verbs_s0', 'number_of_verbs_s1',
-                                        'number_of_symbols_s0','number_of_symbols_s1',
-                                       'number_of_digits_s0','number_of_digits_1',
-                                       'quantity_of_synonims','quantity_of_shared_words',
-                                        'proper_nouns_shared','jaccard_distance','path_similarity',
-                                        'wup_similarity'])
+        features = pd.DataFrame(columns=['sentence_0_lengh', 'sentence_1_lengh',
+                                         'number_of_nouns_s0', 'number_of_nouns_s1',
+                                         'number_of_verbs_s0', 'number_of_verbs_s1',
+                                         'number_of_symbols_s0', 'number_of_symbols_s1',
+                                         'number_of_digits_s0', 'number_of_digits_1',
+                                         'synonim_proportion', 'quantity_of_shared_words',
+                                         'proper_nouns_shared', 'jaccard_distance', 'path_similarity',
+                                         'wup_similarity', 'resnik_similarity',
+                                         'jcn_similarity', 'lin_similarity'])
 
         mx = len(dataset.index)
         for index, row in dataset.iterrows():
+            print('\rExtracting features...', index, 'of', mx, end='   ', flush=True)
             s0 = row['sentence0']
             s1 = row['sentence1']
-            print('\rExtracting features...', index, 'of', mx, end='   ', flush=True)
             features.loc[index,'jaccard_distance'] = self.calculate_jaccard(s0,s1)
+            features.loc[index,'resnik_similarity'] = self.sentence_similarity_information_content(s0,s1,wn.res_similarity)
+            features.loc[index,'jcn_similarity'] = self.sentence_similarity_information_content(s0,s1,wn.jcn_similarity)
+            features.loc[index,'lin_similarity'] = self.sentence_similarity_information_content(s0,s1,wn.lin_similarity)
             features.loc[index,'path_similarity'] = self.sentence_similarity(s0,s1,wn.path_similarity)
             features.loc[index,'wup_similarity'] = self.sentence_similarity(s0,s1,wn.wup_similarity)
             features.loc[index,'proper_nouns_shared'] = self.count_common_propper_nouns(s0,s1)
             features.loc[index,'quantity_of_shared_words'] = self.count_shared_words(s0,s1)
-            features.loc[index,'quantity_of_synonims'] = self.count_synonims(s0,s1)
+            features.loc[index,'synonim_proportion'] = self.synonim_proportion(s0,s1)
             features.loc[index,'sentence_0_lengh'] = self.sentence_lenght(s0)
             features.loc[index,'sentence_1_lengh'] = self.sentence_lenght(s1)
             features.loc[index,'number_of_nouns_s0'] = self.count_nouns(s0)
@@ -42,9 +49,65 @@ class FeatureExtractor:
             features.loc[index,'number_of_symbols_s1'] = self.count_symbols(s1)
             features.loc[index,'number_of_digits_s0'] = self.count_digits(s0)
             features.loc[index,'number_of_digits_1'] = self.count_digits(s1)
-        print()
+
+        features['resnik_similarity'] = self.scaler.fit_transform(features[['resnik_similarity']].values)
+        features['jcn_similarity'] = self.scaler.fit_transform(features[['jcn_similarity']].values)
 
         return features
+
+    def synonim_proportion(self, s0, s1):
+        syn_count = 0
+        for a in s0:
+            a = a.lower()
+            synonims_a = self._get_word_synonyms(a)
+            for b in s1:
+                b = b.lower()
+                synonims_b = self._get_word_synonyms(b)
+                if a == b:
+                    are_syns = 1
+                else:
+                    are_syns = len(set(synonims_a) & set(synonims_b)) > 0
+                syn_count += are_syns
+        max_len = min([len(s0), len(s1)])
+        return syn_count / max_len
+
+    def tagged_to_synset(self, word, tag):
+        wn_tag = self.penn_to_wn(tag)
+        if wn_tag is None:
+            return None
+        try:
+            return wn.synsets(word, wn_tag)[0]
+        except:
+            return None
+
+    def sentence_similarity_information_content(self, sentence1, sentence2, similarity):
+        ''' compute the sentence similairty using information content from wordnet '''
+        # Tokenize and tag
+        sentence1 = pos_tag(sentence1)
+        sentence2 = pos_tag(sentence2)
+        # Get the synsets for the tagged words
+        synsets1 = [self.tagged_to_synset(*tagged_word) for tagged_word in sentence1]
+        synsets2 = [self.tagged_to_synset(*tagged_word) for tagged_word in sentence2]
+        # Filter out the Nones
+        synsets1 = [ss for ss in synsets1 if ss]
+        synsets2 = [ss for ss in synsets2 if ss]
+        score, count = 0.0, 0
+        ppdb_score, align_cnt = 0, 0
+        # For each word in the first sentence
+        for synset in synsets1:
+            L = []
+            for ss in synsets2:
+                try:
+                    L.append(wn.similarity(synset, ss, self.brown_ic))
+                except:
+                    continue
+            if L:
+                best_score = max(L)
+                score += best_score
+                count += 1
+        # Average the values
+        if count > 0: score /= count
+        return score
 
     def sentence_lenght(self, s):
         return len(s)
@@ -98,10 +161,6 @@ class FeatureExtractor:
         s0_tags = tagger.tag(s0)
         V_s0 = [values[0] for values in s0_tags if values[1] == 'VBP']
         return len(V_s0)
-
-    def remove_stop_words(self, s0):
-        new_vector = ' '.join(word for word in s0.split() if word.lower() not in list(stopwords.words('english')))
-        return new_vector
 
     def calculate_jaccard(self, s0, s1):
         lemms_0 = set([a.lower() for a in s0 if a])
