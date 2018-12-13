@@ -13,7 +13,7 @@ def load_data():
     train_df = pd.read_csv(train_path, sep='\t', lineterminator='\n', names=['sentence0','sentence1'], header=None, quoting=csv.QUOTE_NONE)
     train_gs = pd.read_csv(train_gs_path, sep='\t', lineterminator='\n', names=['labels'], header=None)
     print('train shape:', train_df.shape, train_gs.shape)
-    return train_df,train_gs
+    return train_df, train_gs
 
 def lemmatize_text(text):
     lemmatizer = WordNetLemmatizer()

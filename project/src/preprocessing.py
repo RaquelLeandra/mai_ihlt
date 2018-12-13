@@ -35,7 +35,7 @@ class Preprocessor:
         data = data.copy()
 
         for _, row in data.iterrows():
-            #self.meaning(row)
+            self.meaning(row)
             pass
 
         for column in data.columns:
@@ -46,8 +46,8 @@ class Preprocessor:
 
         return data
 
-    def revectorize(self, tagged):
-        return [word for word, tag in tagged]
+    def revectorize(self, tagged): # And remove final s
+        return [re.sub('s$', '', word).lower() for word, tag in tagged]
 
     # ------------------------------------------------ REMOVE & FIX ▼ --------------------------------------------------
 

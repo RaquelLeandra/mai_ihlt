@@ -12,6 +12,8 @@ from preprocessing import Preprocessor
 from jaccard import Jaccard
 import matplotlib.pyplot as plt
 from rfr import RFR
+from bog import BOG
+from sklearn.neural_network import MLPRegressor
 
 class Classifier:
     _GS_COLS = ['labels']
@@ -48,6 +50,8 @@ class Classifier:
         self.feature_extractor = FeatureExtractor()
         self.jaccard = Jaccard()
         self.rfr = RFR()
+        self.nn = MLPRegressor(hidden_layer_sizes=(100, 100), validation_fraction=0.3, alpha=0.3, warm_start=False,
+                                max_iter=1000)
         self.vectorizer = TfidfVectorizer(max_features=None,
                                           strip_accents='unicode', analyzer='word', token_pattern=r'\w{1,}',
                                           ngram_range=(1, 3), use_idf=1, smooth_idf=1, sublinear_tf=1,
@@ -63,44 +67,59 @@ class Classifier:
         print('Preprocessing...')
         self.pre_trn = self.preprocessor.run_lemmas(self.trn)
         self.pre_tst = self.preprocessor.run_lemmas(self.tst)
-        self.tok_trn = self.preprocessor.run_meaning(self.pre_trn)
+        self.tok_trn = self.preprocessor.run_meaning(self.pre_trn) # TODO !!!!
         self.tok_tst = self.preprocessor.run_meaning(self.pre_tst)
         print(self.pre_trn.head())
         # Features
-        self.fea_trn = self.feature_extractor.extract(self.tok_trn)
-        self.fea_tst = self.feature_extractor.extract(self.tok_tst)
+
+        self.fea_trn = pd.read_pickle('./dump/fea_trn.dump')
+        self.fea_tst = pd.read_pickle('./dump/fea_tst.dump')
+        #self.fea_trn = self.feature_extractor.extract(self.tok_trn)
+        #self.fea_tst = self.feature_extractor.extract(self.tok_tst)
+        #self.fea_trn.to_pickle('./dump/fea_trn.dump')
+        #self.fea_tst.to_pickle('./dump/fea_tst.dump')
+
         #self.vec_trn = self.vectorizer.fit_transform(self.pre_trn['sentence0'] + self.pre_trn['sentence1'])
         #self.vec_tst = self.vectorizer.transform(self.pre_tst['sentence0'] + self.pre_tst['sentence1'])
 
+        print('Creating BOG...')
+        bog = BOG()
+        bog.train_dictionary(self.tok_trn)
+        bog_extended_trn = bog.get_bog_extended(self.tok_trn, self.fea_trn)
+        bog_extended_tst = bog.get_bog_extended(self.tok_tst, self.fea_tst)
+        bog_extended_trn_scaled = bog.get_bog_extended(self.tok_trn, self.fea_trn, scale=True)
+        bog_extended_tst_scaled = bog.get_bog_extended(self.tok_tst, self.fea_tst, scale=True)
+
         print('Training RFR...')
-        self.rfr.train(self.tok_trn, self.fea_trn, self.trn_gs['labels'].values)
-        print('Done !')
+        self.rfr.fit(bog_extended_trn, self.trn_gs['labels'].values)
+        self.rfr.print_feature_importance(bog_extended_trn)
+
+        print('Training NN...')
+        self.nn.fit(bog_extended_trn_scaled, self.trn_gs['labels'].values)
 
         print('Testing...')
-        predict_rfr_trn, predict_rfr_tst = self.test_rfr()
-        predict_jac_trn, predict_jac_tst = self.test_jac()
-        predict_vot_trn = self.voting(predict_rfr_trn, predict_jac_trn)
-        predict_vot_tst = self.voting(predict_rfr_tst, predict_jac_tst)
+        predict_nn_trn = self.nn.predict(bog_extended_trn_scaled)
+        predict_nn_tst = self.nn.predict(bog_extended_tst_scaled)
+        predict_rfr_trn = self.rfr.predict(bog_extended_trn)
+        predict_rfr_tst = self.rfr.predict(bog_extended_tst)
+        predict_jac_trn = self.jaccard.predict(self.tok_trn)
+        predict_jac_tst = self.jaccard.predict(self.tok_tst)
+        predict_vot_trn = self.voting(predict_rfr_trn, predict_jac_trn, predict_nn_trn)
+        predict_vot_tst = self.voting(predict_rfr_tst, predict_jac_tst, predict_nn_tst)
 
-        print('Done !')
-        self.show_results(predict_rfr_trn, predict_rfr_tst, predict_jac_trn, predict_jac_tst, predict_vot_trn, predict_vot_tst)
+        self.show_results(predict_rfr_trn, predict_rfr_tst, predict_jac_trn, predict_jac_tst, predict_nn_trn, predict_nn_tst, predict_vot_trn, predict_vot_tst)
 
-    def voting(self, predict_rfr, predict_jac):
+    def voting_test(self, predict_rfr, predict_jac, predict_nn):
+        pass
+
+    def voting(self, predict_rfr, predict_jac, predict_nn):
         voted = []
         for rfr, jac in zip(predict_rfr, predict_jac):
-            if (rfr - jac) > -1.67:
-                voted.append((0.55 * jac + rfr) / (1 + 0.55))
+            if jac > rfr:
+                voted.append(jac)
             else:
-                voted.append((jac + 0.55 * rfr) / (1 + 0.55))
+                voted.append(rfr)
         return voted
-
-    # --------------------------------------------------- MODELS ▼ ----------------------------------------------------
-
-    def test_rfr(self):
-        return self.rfr.predict_(self.tok_trn, self.fea_trn), self.rfr.predict_(self.tok_tst, self.fea_tst)
-
-    def test_jac(self):
-        return self.jaccard.predict(self.tok_trn), self.jaccard.predict(self.tok_tst)
 
     # ---------------------------------------------------- SHOW ▼ -----------------------------------------------------
 
@@ -112,14 +131,19 @@ class Classifier:
             '{:.4f}'.format(pearsonr(tst, self.tst_gs['labels'])[0])
         ])
 
-    def show_results(self, rfr_trn, rfr_tst, jac_trn, jac_tst, vot_trn, vot_tst):
+    def show_results(self, rfr_trn, rfr_tst, jac_trn, jac_tst, nn_trn, nn_tst, vot_trn, vot_tst):
         table = BeautifulTable()
         table.append_column('', ['Trn', 'Tst', 'Trn Pearson', 'Tst Pearson'])
 
         self.__add_table(table, 'Real', self.trn_gs['labels'], self.tst_gs['labels'])
         self.__add_table(table, 'RFR', rfr_trn, rfr_tst)
         self.__add_table(table, 'Jaccard', jac_trn, jac_tst)
+        self.__add_table(table, 'NN', nn_trn, nn_tst)
         self.__add_table(table, 'Voting', vot_trn, vot_tst)
+        plt.scatter(nn_tst, self.tst_gs['labels'], c='Cyan')
+        plt.xlabel('NN label')
+        plt.ylabel('Real label')
+        plt.show()
         plt.scatter(vot_tst, self.tst_gs['labels'], c='Blue')
         plt.xlabel('Voting label')
         plt.ylabel('Real label')
