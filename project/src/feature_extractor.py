@@ -50,6 +50,7 @@ class FeatureExtractor:
             features.loc[index,'number_of_digits_1'] = self.count_digits(s1)
             features.loc[index,'common_description'] = self.common_description(s0, s1)
 
+        print()
         features['resnik_similarity'] = self.scaler.fit_transform(features[['resnik_similarity']].values)
         features['jcn_similarity'] = self.scaler.fit_transform(features[['jcn_similarity']].values)
 

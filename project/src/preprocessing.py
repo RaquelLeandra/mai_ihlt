@@ -18,16 +18,19 @@ class Preprocessor:
         self.tagger = PerceptronTagger()
         self.lemmatizer = WordNetLemmatizer()
         self.stopwords = list(stopwords.words('english'))
+        self.k = 0
 
     def run_lemmas(self, data):
         data = data.copy()
 
+        self.k = len(data.index) * data.columns
         for column in data.columns:
             data[column] = data[column].apply(word_tokenize)
-            # data[column] = data[column].apply(self.auto_correct) TODO dump
+            data[column] = data[column].apply(self.auto_correct)
             data[column] = data[column].apply(self.remover)  # Remove stop words and symbols
             data[column] = data[column].apply(self.tagger.tag)
             data[column] = data[column].apply(self.lemmatize)
+        print()
 
         return data
 
@@ -68,6 +71,8 @@ class Preprocessor:
         return new_vector
 
     def auto_correct(self, vector):
+        self.k -= 1
+        print('\rSpell auto-correct...', self.k, 'sentences remain', end='    ', flush=True)
         return [spell(word) for word in vector]
 
     # --------------------------------------------------- LEMMAS ▼ ----------------------------------------------------
