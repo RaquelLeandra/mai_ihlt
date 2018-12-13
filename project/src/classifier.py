@@ -115,10 +115,7 @@ class Classifier:
     def voting(self, predict_rfr, predict_jac, predict_nn):
         voted = []
         for rfr, jac, nn in zip(predict_rfr, predict_jac, predict_nn):
-            if jac < 2:
-                voted.append(0.5 * rfr + 0.5 * nn)
-            else:
-                voted.append(rfr)
+            voted.append(0.5 * rfr + 0.5 * nn)
         return voted
 
     # ---------------------------------------------------- SHOW ▼ -----------------------------------------------------
