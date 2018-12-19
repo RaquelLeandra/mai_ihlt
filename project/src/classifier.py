@@ -1,11 +1,10 @@
 import pandas as pd
 import numpy as np
 import csv
-from os import listdir, path as pth, makedirs
+from os import listdir, path as pth
 from beautifultable import BeautifulTable
 
 from scipy.stats import pearsonr
-from sklearn.feature_extraction.text import TfidfVectorizer
 from feature_extractor import FeatureExtractor
 
 from preprocessing import Preprocessor
@@ -18,15 +17,6 @@ from sklearn.neural_network import MLPRegressor
 class Classifier:
     _GS_COLS = ['labels']
     _COLS = ['sentence0', 'sentence1']
-    _DUMP_DIR = './dump'
-    _DUMP_FILES = {
-        'TRN': './dump/classifier.trn.dump',
-        'TST': './dump/classifier.tst.dump',
-        'PRE_TRN': './dump/classifier.pre_trn.dump',
-        'PRE_TST': './dump/classifier.pre_tst.dump',
-        'TRN_GS': './dump/classifier.trn_gs.dump',
-        'TST_GS': './dump/classifier.tst_gs.dump'
-    }
 
     def __init__(self, train_path, test_path):
         self.train_path = train_path
@@ -36,59 +26,42 @@ class Classifier:
         self.tst = pd.DataFrame(columns=Classifier._COLS)       # Read data_frame
         self.trn_gs = pd.DataFrame(columns=Classifier._GS_COLS) # Known labels
         self.tst_gs = pd.DataFrame(columns=Classifier._GS_COLS) # Known labels
-        self.pre_trn = pd.DataFrame(columns=Classifier._COLS)   # Preprocessed data_frame
-        self.pre_tst = pd.DataFrame(columns=Classifier._COLS)   # Preprocessed data_frame
-        self.vec_trn = []
-        self.vec_tst = []
         self.tok_trn = []
         self.tok_tst = []
-        self.fea_trn = []
-        self.fea_tst = []
-
-        self._dump_loaded = False
 
         self.feature_extractor = FeatureExtractor()
         self.jaccard = Jaccard()
         self.rfr = RFR()
         self.nn = MLPRegressor(hidden_layer_sizes=(100, 30, 30), validation_fraction=0.3, alpha=0.3, warm_start=False,
                                 max_iter=1000, activation='logistic')
-        self.vectorizer = TfidfVectorizer(max_features=None,
-                                          strip_accents='unicode', analyzer='word', token_pattern=r'\w{1,}',
-                                          ngram_range=(1, 3), use_idf=1, smooth_idf=1, sublinear_tf=1,
-                                          stop_words='english')
-
-        if not pth.exists(Classifier._DUMP_DIR):
-            makedirs(Classifier._DUMP_DIR)
 
     # -------------------------------------------------- CLASSIFY ▼ ----------------------------------------------------
 
     def classify(self):
         print(self.trn.head())
         print('Preprocessing...')
-        self.pre_trn = self.preprocessor.run_lemmas(self.trn)
-        self.pre_tst = self.preprocessor.run_lemmas(self.tst)
-        self.tok_trn = self.preprocessor.run_meaning(self.pre_trn) # TODO !!!!
-        self.tok_tst = self.preprocessor.run_meaning(self.pre_tst)
-        print(self.pre_trn.head())
+        self.tok_trn = self.preprocessor.run(self.trn)
+        self.tok_tst = self.preprocessor.run(self.tst)
+        print(self.tok_trn.head())
+
+        print(self.tok_trn['sentence0'].values[483])
+        print(self.trn['sentence0'].values[483])
+
         # Features
-
-        self.fea_trn = pd.read_pickle('./dump/fea_trn4.dump')
-        self.fea_tst = pd.read_pickle('./dump/fea_tst4.dump')
-        #self.fea_trn = self.feature_extractor.extract(self.tok_trn)
-        #self.fea_tst = self.feature_extractor.extract(self.tok_tst)
-        #self.fea_trn.to_pickle('./dump/fea_trn4.dump')
-        #self.fea_tst.to_pickle('./dump/fea_tst4.dump')
-
-        #self.vec_trn = self.vectorizer.fit_transform(self.pre_trn['sentence0'] + self.pre_trn['sentence1'])
-        #self.vec_tst = self.vectorizer.transform(self.pre_tst['sentence0'] + self.pre_tst['sentence1'])
+        fea_trn = pd.read_pickle('./dump/fea_trn4.dump')
+        fea_tst = pd.read_pickle('./dump/fea_tst4.dump')
+        #fea_trn = self.feature_extractor.extract(tok_trn)
+        #fea_tst = self.feature_extractor.extract(tok_tst)
+        #fea_trn.to_pickle('./dump/fea_trn4.dump')
+        #fea_tst.to_pickle('./dump/fea_tst4.dump')
 
         print('Creating BOG...')
         bog = BOG()
         bog.train_dictionary(self.tok_trn)
-        bog_extended_trn = bog.get_bog_extended(self.tok_trn, self.fea_trn)
-        bog_extended_tst = bog.get_bog_extended(self.tok_tst, self.fea_tst)
-        bog_extended_trn_scaled = bog.get_bog_extended(self.tok_trn, self.fea_trn, scale=True)
-        bog_extended_tst_scaled = bog.get_bog_extended(self.tok_tst, self.fea_tst, scale=True)
+        bog_extended_trn = bog.get_bog_extended(self.tok_trn, fea_trn)
+        bog_extended_tst = bog.get_bog_extended(self.tok_tst, fea_tst)
+        bog_extended_trn_scaled = bog.get_bog_extended(self.tok_trn, fea_trn, scale=True)
+        bog_extended_tst_scaled = bog.get_bog_extended(self.tok_tst, fea_tst, scale=True)
 
         print('Training RFR...')
         self.rfr.fit(bog_extended_trn, self.trn_gs['labels'].values)
@@ -98,23 +71,20 @@ class Classifier:
         self.nn.fit(bog_extended_trn_scaled, self.trn_gs['labels'].values)
 
         print('Testing...')
-        predict_nn_trn = self.nn.predict(bog_extended_trn_scaled)
-        predict_nn_tst = self.nn.predict(bog_extended_tst_scaled)
+        predict_nn_trn  = self.nn.predict(bog_extended_trn_scaled)
+        predict_nn_tst  = self.nn.predict(bog_extended_tst_scaled)
         predict_rfr_trn = self.rfr.predict(bog_extended_trn)
         predict_rfr_tst = self.rfr.predict(bog_extended_tst)
         predict_jac_trn = self.jaccard.predict(self.tok_trn)
         predict_jac_tst = self.jaccard.predict(self.tok_tst)
-        predict_vot_trn = self.voting(predict_rfr_trn, predict_jac_trn, predict_nn_trn)
-        predict_vot_tst = self.voting(predict_rfr_tst, predict_jac_tst, predict_nn_tst)
+        predict_vot_trn = self.average(predict_rfr_trn, predict_nn_trn)
+        predict_vot_tst = self.average(predict_rfr_tst, predict_nn_tst)
 
         self.show_results(predict_rfr_trn, predict_rfr_tst, predict_jac_trn, predict_jac_tst, predict_nn_trn, predict_nn_tst, predict_vot_trn, predict_vot_tst)
 
-    def voting_test(self, predict_rfr, predict_jac, predict_nn):
-        pass
-
-    def voting(self, predict_rfr, predict_jac, predict_nn):
+    def average(self, predict_rfr, predict_nn):
         voted = []
-        for rfr, jac, nn in zip(predict_rfr, predict_jac, predict_nn):
+        for rfr, nn in zip(predict_rfr, predict_nn):
             voted.append(0.5 * rfr + 0.5 * nn)
         return voted
 
@@ -142,7 +112,7 @@ class Classifier:
         plt.ylabel('Real label')
         plt.show()
         plt.scatter(vot_trn, self.trn_gs['labels'], c='Blue')
-        plt.xlabel('Voting label')
+        plt.xlabel('Averaging label')
         plt.ylabel('Real label')
         plt.show()
         plt.scatter(jac_trn, self.trn_gs['labels'], c='Green')
@@ -158,7 +128,7 @@ class Classifier:
         plt.ylabel('Real label')
         plt.show()
         plt.scatter(vot_tst, self.tst_gs['labels'], c='Blue')
-        plt.xlabel('Voting label')
+        plt.xlabel('Averaging label')
         plt.ylabel('Real label')
         plt.show()
         plt.scatter(jac_tst, self.tst_gs['labels'], c='Green')
@@ -170,58 +140,51 @@ class Classifier:
         plt.ylabel('Real label')
         plt.show()
         print(table)
-        self.show_worst_test(vot_tst, rfr_tst, jac_tst)
+        self.show_worst_test(vot_tst, rfr_tst, nn_tst, jac_tst)
+        print()
+        self.show_best_test(vot_tst, rfr_tst, nn_tst, jac_tst)
+        print()
 
-    def show_worst_test(self, predicted, predicted_rfr, predicted_jac, k=10):
-        print('Worst results in voting:')
+    def show_best_test(self, predicted, predicted_rfr, predicted_nn, predicted_jac, k=15):
+        print('Best results in averaging:')
+        err = np.abs(predicted - self.tst_gs['labels'].values)
+        idx = np.argpartition(err, k)[:k]
+        dic = {err[i]: i for i in idx}  # Create a dictionary with the errors as the key for sorting output
+        for err in sorted(dic, reverse=True):
+            i = dic[err]
+            print(
+                '\33[100m{:d} Predicted [Averaging: {:.2f} RFR: {:.2f} NN: {:.2f} Jaccard: {:.2f}] Target: {:.2f} Err: {:.2f}\033[0m\n{:s}\n{:s}'
+                .format(
+                    i, predicted[i], predicted_rfr[i], predicted_nn[i], predicted_jac[i], self.tst_gs['labels'].values[i], err,
+                    str(self.tst['sentence0'].values[i]).replace('\n', '').replace('\r', ''),
+                    str(self.tst['sentence1'].values[i]).replace('\n', '').replace('\r', '')
+                ))
+
+    def show_worst_test(self, predicted, predicted_rfr, predicted_nn, predicted_jac, k=15):
+        print('Worst results in averaging:')
         err = np.abs(predicted - self.tst_gs['labels'].values)
         idx = np.argpartition(err, -k)[-k:]
         dic = {err[i]: i for i in idx}  # Create a dictionary with the errors as the key for sorting output
         for err in sorted(dic, reverse=True):
             i = dic[err]
             print(
-                '\33[100m{:d} Predicted [Voting: {:.2f} RFR: {:.2f} Jaccard: {:.2f}] Target: {:.2f} Err: {:.2f}\033[0m\n  Original:     [{:s}] [{:s}]\n  Preprocessed: [{:s}] [{:s}]'
+                '\33[100m{:d} Predicted [Averaging: {:.2f} RFR: {:.2f} NN: {:.2f} Jaccard: {:.2f}] Target: {:.2f} Err: {:.2f}\033[0m\n{:s}\n{:s}'
                 .format(
-                    i, predicted[i], predicted_rfr[i], predicted_jac[i], self.tst_gs['labels'].values[i], err,
+                    i, predicted[i], predicted_rfr[i], predicted_nn[i], predicted_jac[i], self.tst_gs['labels'].values[i], err,
                     str(self.tst['sentence0'].values[i]).replace('\n', '').replace('\r', ''),
-                    str(self.tst['sentence1'].values[i]).replace('\n', '').replace('\r', ''),
-                    str(self.pre_tst['sentence0'].values[i]),
-                    str(self.pre_tst['sentence1'].values[i]),
+                    str(self.tst['sentence1'].values[i]).replace('\n', '').replace('\r', '')
                 ))
 
     # --------------------------------------------------- LOADING ▼ ---------------------------------------------------
 
     def load(self, use_dump=True):
-
-        #  (Try) Load from dump
-        if use_dump:
-            try:
-                self.trn = pd.read_pickle(Classifier._DUMP_FILES['TRN'])
-                self.tst = pd.read_pickle(Classifier._DUMP_FILES['TST'])
-                self.trn_gs = pd.read_pickle(Classifier._DUMP_FILES['TRN_GS'])
-                self.tst_gs = pd.read_pickle(Classifier._DUMP_FILES['TST_GS'])
-                self.pre_trn = pd.read_pickle(Classifier._DUMP_FILES['PRE_TRN'])
-                self.pre_tst = pd.read_pickle(Classifier._DUMP_FILES['PRE_TST'])
-                self._dump_loaded = True
-            except IOError:
-                pass
-
-        #  Load from txt files
-        if not use_dump or not self._dump_loaded:
-            self.trn, self.trn_gs = self.__load_all(self.train_path)
-            self.tst, self.tst_gs = self.__load_all(self.test_path)
+        self.trn, self.trn_gs = self.__load_all(self.train_path)
+        self.tst, self.tst_gs = self.__load_all(self.test_path)
 
         print('Train: {0} Test: {1}'.format(self.trn.shape, self.tst.shape))
 
-    def save_dump(self):
-        self.trn.to_pickle(Classifier._DUMP_FILES['TRN'])
-        self.tst.to_pickle(Classifier._DUMP_FILES['TST'])
-        self.trn_gs.to_pickle(Classifier._DUMP_FILES['TRN_GS'])
-        self.tst_gs.to_pickle(Classifier._DUMP_FILES['TST_GS'])
-        self.pre_trn.to_pickle(Classifier._DUMP_FILES['PRE_TRN'])
-        self.pre_tst.to_pickle(Classifier._DUMP_FILES['PRE_TST'])
-
     def __load_all(self, dir):
+        print(dir)
         files = listdir(dir)
         input = pd.DataFrame(columns=['sentence0', 'sentence1'])
         label = pd.DataFrame(columns=['labels'])

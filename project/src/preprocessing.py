@@ -18,34 +18,25 @@ class Preprocessor:
         self.tagger = PerceptronTagger()
         self.lemmatizer = WordNetLemmatizer()
         self.stopwords = list(stopwords.words('english'))
-        self.k = 0
+        self.auto_correct_remaining = 0
 
-    def run_lemmas(self, data):
+    def run(self, data):
         data = data.copy()
 
-        self.k = len(data.index) * data.columns
+        self.auto_correct_remaining = len(data.index) * len(data.columns)
         for column in data.columns:
             data[column] = data[column].apply(word_tokenize)
-            data[column] = data[column].apply(self.auto_correct)
+            #data[column] = data[column].apply(self.auto_correct)
             data[column] = data[column].apply(self.remover)  # Remove stop words and symbols
             data[column] = data[column].apply(self.tagger.tag)
             data[column] = data[column].apply(self.lemmatize)
         print()
 
-        return data
-
-    def run_meaning(self, data):
-        data = data.copy()
-
         for _, row in data.iterrows():
             self.meaning(row)
-            pass
 
         for column in data.columns:
             data[column] = data[column].apply(self.revectorize)
-            #data[column] = data[column].str.join(' ')
-            #data[column] = data[column].str.lower()
-            #data[column] = data[column].apply(self.remove_s)
 
         return data
 
@@ -53,9 +44,6 @@ class Preprocessor:
         return [re.sub('s$', '', word).lower() for word, tag in tagged]
 
     # ------------------------------------------------ REMOVE & FIX ▼ --------------------------------------------------
-
-    def remove_s(self, sentence):
-        return re.sub(r'(\w)s(\s)', '\\1\\2', sentence)
 
     def remover(self, vector):
         new_vector = []
@@ -71,8 +59,8 @@ class Preprocessor:
         return new_vector
 
     def auto_correct(self, vector):
-        self.k -= 1
-        print('\rSpell auto-correct...', self.k, 'sentences remain', end='    ', flush=True)
+        self.auto_correct_remaining -= 1
+        print('\rSpell auto-correct...', self.auto_correct_remaining, 'sentences remain', end='    ', flush=True)
         return [spell(word) for word in vector]
 
     # --------------------------------------------------- LEMMAS ▼ ----------------------------------------------------

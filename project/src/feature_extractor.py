@@ -1,6 +1,5 @@
 import pandas as pd
 from nltk.corpus import wordnet as wn
-from nltk.corpus import stopwords
 from nltk.metrics import jaccard_distance
 from nltk.tag import PerceptronTagger
 from nltk import pos_tag
@@ -213,15 +212,6 @@ class FeatureExtractor:
         if tag.startswith('R'):
             return 'r'
         return 'n'
-
-    def tagged_to_synset(self, word, tag):
-        wn_tag = self.penn_to_wn(tag)
-        if wn_tag is None:
-            return None
-        try:
-            return wn.synsets(word, wn_tag)[0]
-        except:
-            return None
 
     def sentence_similarity(self, sentence1, sentence2, similarity=wn.path_similarity):
         """ compute the sentence similarity using Wordnet """
