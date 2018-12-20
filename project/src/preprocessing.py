@@ -53,7 +53,7 @@ class Preprocessor:
             word = re.sub(r'\s+', ' ', word)  # Replace multiple spaces by one
             word = re.sub(r'^\s+|\s+$', '', word) # Trim spaces
 
-            if word and not (word in self.stopwords):
+            if word and not (word in self.stopwords): // TODO word.lower() in self.stopwords
                 new_vector.append(word)
 
         return new_vector
